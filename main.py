@@ -35,7 +35,6 @@ class Releasify:
 
         artist_ids = self._get_artist_ids_from_playlist_id(playlist_id)
         print(f"Found {len(artist_ids)} artists on playlist.")
-        new_track_count = 0
         for artist_id in list(artist_ids):
             album_ids = self._get_album_ids_from_artist_id(artist_id)
             for album_id in album_ids:
@@ -45,11 +44,10 @@ class Releasify:
                     if track_id not in all_tracks
                 ]
                 if track_ids:
-                    new_track_count += len(track_ids)
                     self._user_spotify.user_playlist_add_tracks(
                         self.user_id, new_playlist_id, track_ids)
                 all_tracks.update(track_ids)
-        print(f"Found {new_track_count} new tracks.")
+        print(f"Found {len(all_tracks)} new tracks.")
 
     def _create_new_playlist(self, base_name: str) -> str:
         new_name = f'Releasify: {base_name}'
