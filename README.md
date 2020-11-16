@@ -13,3 +13,4 @@ Find new releases by artists in a given playlist.
 2) Only add songs based on region of input playlist
 3) Support multiple playlists
 4) Progress bar
+5) Add docstrings
