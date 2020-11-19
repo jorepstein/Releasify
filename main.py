@@ -1,3 +1,4 @@
+import argparse
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
 import time
@@ -136,10 +137,16 @@ def get_current_time() -> int:
     return int(time.time())
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("playlist_ids",
+                        type=str,
+                        nargs="+",
+                        help="playlist ids to search")
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    import sys
-    playlist_id = '1GLKZr0XoSfAtI98mQK6IF'
-    if len(sys.argv) > 1:
-        playlist_id = sys.argv[1]
+    args = parse_args()
     r = Releasify()
-    r.run_playlist(playlist_id)
+    for playlist_id in args.playlist_ids:
+        r.run_playlist(playlist_id)
