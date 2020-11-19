@@ -29,7 +29,7 @@ class Releasify:
     def user_id(self):
         return self._user_id
 
-    def run_playlist(self, playlist_id: str):
+    def run_playlist(self, playlist_id: str, time_window_days: int):
         new_playlist_id = self._create_new_playlist(
             self._get_playlist_name(playlist_id))
         all_tracks = set()
@@ -37,7 +37,7 @@ class Releasify:
         artist_ids = self._get_artist_ids_from_playlist_id(playlist_id)
         print(f"Found {len(artist_ids)} artists on playlist.")
         for artist_id in list(artist_ids):
-            album_ids = self._get_album_ids_from_artist_id(artist_id)
+            album_ids = self._get_album_ids_from_artist_id(artist_id, time_window_days)
             for album_id in album_ids:
                 track_ids = self._get_track_ids_from_album_id(album_id)
                 track_ids = [
@@ -82,7 +82,8 @@ class Releasify:
                     all_artist_ids.add(artist['id'])
         return all_artist_ids
 
-    def _get_album_ids_from_artist_id(self, artist_id: str) -> List[str]:
+    def _get_album_ids_from_artist_id(self, artist_id: str,
+                                      time_window_days: int) -> List[str]:
         limit = 50
         all_album_ids = set()
 
@@ -98,8 +99,9 @@ class Releasify:
             for album in results['items']:
                 release_time = get_release_time(
                     album['release_date'], album['release_date_precision'])
-                if release_time and (get_current_time() - release_time <
-                                     604800):
+                time_window_seconds = time_window_days * 24 * 60 * 60
+                seconds_since_release = get_current_time() - release_time
+                if release_time and seconds_since_release < time_window_seconds:
                     all_album_ids.add(album['id'])
         return all_album_ids
 
@@ -138,15 +140,22 @@ def get_current_time() -> int:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("playlist_ids",
                         type=str,
                         nargs="+",
                         help="playlist ids to search")
+    parser.add_argument("-t",
+                        "--time_window",
+                        type=int,
+                        nargs="?",
+                        default=7,
+                        help="how far back (in days) to search for releases")
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     args = parse_args()
     r = Releasify()
     for playlist_id in args.playlist_ids:
-        r.run_playlist(playlist_id)
+        r.run_playlist(playlist_id, args.time_window)
