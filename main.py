@@ -155,13 +155,22 @@ def get_current_time() -> int:
     return int(time.time())
 
 
+def clean_input(playlist_ids: List[str]):
+    ids = []
+    for playlist_id in playlist_ids:
+        if playlist_id.startswith("spotify:playlist:"):
+            playlist_id = playlist_id.split("spotify:playlist:")[1]
+        ids.append(playlist_id)
+    return ids
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("playlist_ids",
                         type=str,
                         nargs="+",
-                        help="playlist ids to search")
+                        help="playlist ids to search (Right-click playlist -> Share -> Copy Spotify URI)")
     parser.add_argument("-t",
                         "--time_window",
                         type=int,
