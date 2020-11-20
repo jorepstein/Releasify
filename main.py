@@ -29,15 +29,31 @@ class Releasify:
     def user_id(self):
         return self._user_id
 
+    def run_playlists(self, playlist_ids: List[str], time_window_days: int,
+                      separate: bool):
+        if len(playlist_ids) > 1 and not separate:
+            new_playlist_id = self._create_new_playlist('Combined')
+            for playlist_id in playlist_ids:
+                self._process_playlist(playlist_id, new_playlist_id,
+                                       time_window_days)
+        else:
+            for playlist_id in playlist_ids:
+                self.run_playlist(playlist_id, time_window_days)
+
     def run_playlist(self, playlist_id: str, time_window_days: int):
-        new_playlist_id = self._create_new_playlist(
+        playlist_id_dest = self._create_new_playlist(
             self._get_playlist_name(playlist_id))
+        self._process_playlist(playlist_id, playlist_id_dest, time_window_days)
+
+    def _process_playlist(self, playlist_id_src, playlist_id_dest: str,
+                          time_window_days: int):
         all_tracks = set()
 
-        artist_ids = self._get_artist_ids_from_playlist_id(playlist_id)
+        artist_ids = self._get_artist_ids_from_playlist_id(playlist_id_src)
         print(f"Found {len(artist_ids)} artists on playlist.")
         for artist_id in list(artist_ids):
-            album_ids = self._get_album_ids_from_artist_id(artist_id, time_window_days)
+            album_ids = self._get_album_ids_from_artist_id(
+                artist_id, time_window_days)
             for album_id in album_ids:
                 track_ids = self._get_track_ids_from_album_id(album_id)
                 track_ids = [
@@ -46,7 +62,7 @@ class Releasify:
                 ]
                 if track_ids:
                     self._user_spotify.user_playlist_add_tracks(
-                        self.user_id, new_playlist_id, track_ids)
+                        self.user_id, playlist_id_dest, track_ids)
                 all_tracks.update(track_ids)
         print(f"Found {len(all_tracks)} new tracks.")
 
@@ -140,7 +156,8 @@ def get_current_time() -> int:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("playlist_ids",
                         type=str,
                         nargs="+",
@@ -151,11 +168,15 @@ def parse_args():
                         nargs="?",
                         default=7,
                         help="how far back (in days) to search for releases")
+    parser.add_argument(
+        "-s",
+        "--separate",
+        action="store_true",
+        help="keep new playlists separate when running multiple playlists at once")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     r = Releasify()
-    for playlist_id in args.playlist_ids:
-        r.run_playlist(playlist_id, args.time_window)
+    r.run_playlists(args.playlist_ids, args.time_window, args.separate)
