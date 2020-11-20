@@ -2,7 +2,7 @@ import argparse
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
 import time
-from typing import List
+from typing import List, Optional
 
 CLIENT_ID = "333893227b6343b1a4effa9d73fe51a8"
 CLIENT_SECRET = "ee4804d37dfe4c4a8deb8db9076bcfaf"
@@ -10,13 +10,12 @@ REDIRECT_URI = "http://localhost"
 
 
 class Releasify:
+
     def __init__(self):
         scope = "user-library-read playlist-modify-private playlist-modify-public"
-        self._user_spotify = spotipy.Spotify(
-            auth_manager=SpotifyOAuth(scope=scope,
-                                      client_id=CLIENT_ID,
-                                      client_secret=CLIENT_SECRET,
-                                      redirect_uri=REDIRECT_URI))
+        self._user_spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(
+            scope=scope, client_id=CLIENT_ID, client_secret=CLIENT_SECRET,
+            redirect_uri=REDIRECT_URI))
         self._user_id = self._user_spotify.me()['id']
 
         self._client_spotify = spotipy.Spotify(
@@ -30,9 +29,9 @@ class Releasify:
         return self._user_id
 
     def run_playlists(self, playlist_ids: List[str], time_window_days: int,
-                      separate: bool):
+                      separate: bool, name: Optional[str]):
         if len(playlist_ids) > 1 and not separate:
-            new_playlist_id = self._create_new_playlist('Combined')
+            new_playlist_id = self._create_new_playlist(name or 'Combined')
             for playlist_id in playlist_ids:
                 self._process_playlist(playlist_id, new_playlist_id,
                                        time_window_days)
@@ -84,8 +83,7 @@ class Releasify:
         limit = 100
         all_artist_ids = set()
 
-        num_tracks = self._user_spotify.playlist_items(playlist_id,
-                                                       limit=limit,
+        num_tracks = self._user_spotify.playlist_items(playlist_id, limit=limit,
                                                        fields='total')['total']
         num_batches = num_tracks // limit + 1
         for i in range(num_batches):
@@ -108,13 +106,11 @@ class Releasify:
         num_batches = num_albums // limit + 1
         for i in range(num_batches):
             results = self._client_spotify.artist_albums(
-                artist_id,
-                limit=limit,
-                offset=i * limit,
+                artist_id, limit=limit, offset=i * limit,
                 album_type='album,single')
             for album in results['items']:
-                release_time = get_release_time(
-                    album['release_date'], album['release_date_precision'])
+                release_time = get_release_time(album['release_date'],
+                                                album['release_date_precision'])
                 time_window_seconds = time_window_days * 24 * 60 * 60
                 seconds_since_release = get_current_time() - release_time
                 if release_time and seconds_since_release < time_window_seconds:
@@ -129,8 +125,7 @@ class Releasify:
                                                        limit=limit)['total']
         num_batches = num_tracks // limit + 1
         for i in range(num_batches):
-            results = self._client_spotify.album_tracks(album_id,
-                                                        limit=limit,
+            results = self._client_spotify.album_tracks(album_id, limit=limit,
                                                         offset=i * limit)
             for track in results['items']:
                 all_track_ids.add(track['id'])
@@ -167,25 +162,23 @@ def clean_input(playlist_ids: List[str]):
 def parse_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("playlist_ids",
-                        type=str,
-                        nargs="+",
-                        help="playlist ids to search (Right-click playlist -> Share -> Copy Spotify URI)")
-    parser.add_argument("-t",
-                        "--time_window",
-                        type=int,
-                        nargs="?",
-                        default=7,
+    parser.add_argument(
+        "playlist_ids", type=str, nargs="+", help=
+        "playlist ids to search (Right-click playlist -> Share -> Copy Spotify URI)"
+    )
+    parser.add_argument("-t", "--time_window", type=int, nargs="?", default=7,
                         help="how far back (in days) to search for releases")
     parser.add_argument(
-        "-s",
-        "--separate",
-        action="store_true",
-        help="keep new playlists separate when running multiple playlists at once")
+        "-s", "--separate", action="store_true", help=
+        "keep new playlists separate when running multiple playlists at once")
+    parser.add_argument(
+        "-n", "--name", type=str, nargs="?", default=None,
+        help="name of new playlist. Not compatible with --separate")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     r = Releasify()
-    r.run_playlists(args.playlist_ids, args.time_window, args.separate)
+    r.run_playlists(args.playlist_ids, args.time_window, args.separate,
+                    args.name)

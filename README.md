@@ -14,4 +14,3 @@ Find new releases by artists in a given playlist.
 3) Support multiple playlists
 4) Progress bar
 5) Add docstrings
-6) Support multiple time ranges
