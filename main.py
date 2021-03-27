@@ -80,9 +80,13 @@ class Releasify:
             limit = 100
             num_batches = len(to_add) // limit + 1
             for batch_num in range(num_batches):
-                self._user_spotify.user_playlist_add_tracks(
-                    self.user_id, playlist_id,
-                    to_add[batch_num * limit:(batch_num + 1) * limit])
+                try:
+                    self._user_spotify.user_playlist_add_tracks(
+                        self.user_id, playlist_id,
+                        to_add[batch_num * limit:(batch_num + 1) * limit])
+                except Exception as e:
+                    print(e)
+                    print("continuing...")
         self._added_tracks[playlist_id].extend(to_add)
         print(f"Added {len(to_add)} new tracks.")
 
@@ -147,7 +151,7 @@ def get_release_time(release_date: str, precision: str) -> int:
         pattern = '%Y'
     try:
         release_time = int(time.mktime(time.strptime(release_date, pattern)))
-    except OverflowError:
+    except (OverflowError, ValueError):
         return 0
     return release_time
 
