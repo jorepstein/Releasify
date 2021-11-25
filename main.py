@@ -23,7 +23,7 @@ class Releasify:
             auth_manager=SpotifyClientCredentials(
                 client_id=CLIENT_ID,
                 client_secret=CLIENT_SECRET,
-            ))
+            ), requests_timeout=60)
         self._added_tracks = defaultdict(list)
 
     @property
@@ -31,23 +31,23 @@ class Releasify:
         return self._user_id
 
     def run_playlists(self, playlist_ids: List[str], time_window_days: int,
-                      separate: bool, name: Optional[str]):
+                      separate: bool, name: Optional[str], all_songs: bool):
         if len(playlist_ids) > 1 and not separate:
             new_playlist_id = self._create_new_playlist(name or 'Combined')
             for playlist_id in playlist_ids:
                 self._process_playlist(playlist_id, new_playlist_id,
-                                       time_window_days)
+                                       time_window_days, all_songs)
         else:
             for playlist_id in playlist_ids:
-                self.run_playlist(playlist_id, time_window_days)
+                self.run_playlist(playlist_id, time_window_days, all_songs)
 
-    def run_playlist(self, playlist_id: str, time_window_days: int):
+    def run_playlist(self, playlist_id: str, time_window_days: int, all_songs: bool):
         playlist_id_dest = self._create_new_playlist(
             self._get_playlist_name(playlist_id))
-        self._process_playlist(playlist_id, playlist_id_dest, time_window_days)
+        self._process_playlist(playlist_id, playlist_id_dest, time_window_days, all_songs)
 
     def _process_playlist(self, playlist_id_src, playlist_id_dest: str,
-                          time_window_days: int):
+                          time_window_days: int, all_songs: bool):
         artist_ids = self._get_artist_ids_from_playlist_id(playlist_id_src)
         print(f"Found {len(artist_ids)} artists on playlist ({self._get_playlist_name(playlist_id_src)})")
         for artist_id in list(artist_ids):
@@ -55,6 +55,9 @@ class Releasify:
                 artist_id, time_window_days)
             for album_id in album_ids:
                 track_ids = self._get_track_ids_from_album_id(album_id)
+                if len(track_ids) > 20 and not all_songs:
+                    print("skipped album")
+                    continue
                 self._add_tracks_to_playlist(track_ids, playlist_id_dest)
 
     def _create_new_playlist(self, base_name: str) -> str:
@@ -173,7 +176,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "playlist_ids", type=str, nargs="+", help=
+        "playlist_ids", type=str, nargs="*", help=
         "playlist ids to search (Right-click playlist -> Share -> Copy Spotify URI)"
     )
     parser.add_argument("-t", "--time_window", type=int, nargs="?", default=7,
@@ -184,11 +187,23 @@ def parse_args():
     parser.add_argument(
         "-n", "--name", type=str, nargs="?", default=None,
         help="name of new playlist. Not compatible with --separate")
+    parser.add_argument("-inp", type=str, nargs="?", default=None, help="text file with names of playlists on new lines. Lines switch start with spotify: are counted as playlists.")
+    parser.add_argument("-all", type=bool, default=False)
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.inp:
+        playlist_ids = []
+        with open(args.inp, "r") as fh:
+            lines = fh.read().splitlines()
+            for line in lines:
+                if line.startswith("spotify:"):
+                    line.strip()
+                    playlist_ids.append(line)
+    else:
+        playlist_ids = args.playlist_ids
     r = Releasify()
-    r.run_playlists(args.playlist_ids, args.time_window, args.separate,
-                    args.name)
+    r.run_playlists(playlist_ids, args.time_window, args.separate,
+                    args.name, args.all)
